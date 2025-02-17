@@ -24,11 +24,9 @@ std::counting_semaphore<1> sem_vanne(0); // A semaphore with initial count of 0
 
 // Config GPIO
 #define CHIP_PATH "/dev/gpiochip0"
-#define GPIO_PIN 5
+const int GPIO_PINS[NVanne] = {5};
 
 void init_gpio();
-gpiod_chip *chip;
-gpiod_line lines;
 
 struct SensorData
 {
@@ -81,15 +79,9 @@ void process_vanne()
 
         for (int i = 0; i < NVanne; ++i)
         {
-            gpiod_line_set_value(lines, etat_vanne->etat[i]);
+            gpiod_line_set_value(lines[i].get(), etat_vanne->etat[i]);
         }
     }
-
-    for (int i = 0; i < NVanne; ++i)
-    {
-        gpiod_line_release(lines);
-    }
-    gpiod_chip_close(chip);
 }
 
 void process_communication()
@@ -153,26 +145,33 @@ int main()
 
 void init_gpio()
 {
-    chip = gpiod_chip_open(CHIP_PATH);
+    auto chip = std::unique_ptr<gpiod_chip, decltype(&gpiod_chip_close)>(gpiod_chip_open(CHIP_PATH), gpiod_chip_close);
     if (!chip)
     {
         std::cerr << "Failed to open GPIO chip!" << std::endl;
         exit(EXIT_FAILURE);
     }
 
-    gpiod_line *line = gpiod_chip_get_line(chip, GPIO_PIN);
-    if (!line)
+    std::vector<std::unique_ptr<gpiod_line, decltype(&gpiod_line_release)>> lines;
+
+    for (int pin : GPIO_PINS)
     {
-        std::cerr << "Failed to get line!" << std::endl;
-        gpiod_chip_close(chip);
-        exit(EXIT_FAILURE);
+        gpiod_line *line = gpiod_chip_get_line(chip.get(), pin);
+        if (!line)
+        {
+            std::cerr << "Failed to get line for GPIO " << pin << "!" << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        // 将 line 封装为智能指针，存入 vector
+        lines.emplace_back(line, gpiod_line_release);
+
+        // 申请 GPIO 线作为输出
+        int ret = gpiod_line_request_output(line, "led_control", 0);
+        if (ret < 0)
+        {
+            std::cerr << "Failed to request line " << pin << " as output!" << std::endl;
+            return EXIT_FAILURE;
+        }
     }
-    int ret = gpiod_line_request_output(line, "led_control", 0);
-    if (ret < 0)
-    {
-        std::cerr << "Failed to request line as output!" << std::endl;
-        gpiod_chip_close(chip);
-        exit(EXIT_FAILURE);
-    }
-    lines[0] = line;
 }
