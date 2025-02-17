@@ -7,6 +7,8 @@
 #include <random>
 #include <gpiod.h>
 #include "sensor.h"
+#include "valve.h"
+#include "configCAC.h"
 #include <fcntl.h>    // For O_* constants
 #include <sys/mman.h> // For shared memory
 #include <sys/stat.h> // For mode constants
@@ -20,22 +22,16 @@ std::counting_semaphore<1> sem_vanne(0); // A semaphore with initial count of 0
 #define SHM_Vanne "/vanne_shm"
 
 #define NCapteur 8
-#define NVanne 1
-
-// Config GPIO
-#define CHIP_PATH "/dev/gpiochip0"
-const int GPIO_PINS[NVanne] = {5};
-
-void init_gpio();
+#define NVanne 4
 
 struct SensorData
 {
     double return_data[NCapteur];
 };
 
-struct EtatVanne
+struct VanneData
 {
-    bool etat[NVanne];
+    Valve vannes[NVanne];
 };
 
 void process_sensor()
@@ -69,9 +65,7 @@ void process_vanne()
         std::cerr << "Failed to open shared memory!" << std::endl;
         exit(EXIT_FAILURE);
     }
-    EtatVanne *etat_vanne = (EtatVanne *)mmap(0, sizeof(EtatVanne), PROT_READ, MAP_SHARED, shm_fd_vanne, 0);
-
-    init_gpio();
+    VanneData *espace_vannes = (VanneData *)mmap(0, sizeof(VanneData), PROT_READ, MAP_SHARED, shm_fd_vanne, 0);
 
     while (true)
     {
@@ -79,7 +73,7 @@ void process_vanne()
 
         for (int i = 0; i < NVanne; ++i)
         {
-            gpiod_line_set_value(lines[i].get(), etat_vanne->etat[i]);
+            espace_vannes->vannes[i].apply_change();
         }
     }
 }
@@ -90,8 +84,8 @@ void process_communication()
 
     // Creer SHM vanne
     int shm_fd_vanne = shm_open(SHM_Vanne, O_CREAT | O_RDWR, 0666);
-    ftruncate(shm_fd_vanne, sizeof(EtatVanne));
-    EtatVanne *etat_vanne = (EtatVanne *)mmap(0, sizeof(EtatVanne), PROT_WRITE, MAP_SHARED, shm_fd_vanne, 0);
+    ftruncate(shm_fd_vanne, sizeof(VanneData));
+    VanneData *espace_vannes = (VanneData *)mmap(0, sizeof(VanneData), PROT_WRITE, MAP_SHARED, shm_fd_vanne, 0);
 
     // Ouvrir SHM Sensor
     int shm_fd_sensor = shm_open(SHM_Sensor, O_CREAT | O_RDWR, 0666);
@@ -100,8 +94,23 @@ void process_communication()
         std::cerr << "Failed to open shared memory!" << std::endl;
         exit(EXIT_FAILURE);
     }
-
     SensorData *data = (SensorData *)mmap(0, sizeof(SensorData), PROT_READ, MAP_SHARED, shm_fd_sensor, 0);
+
+    // Création des objets Valve
+    for (int i = 0; i < NVanne; ++i)
+    {
+        new (&espace_vannes->vannes[i]) Valve(CACMO_Vanne_name[i], CAC_Name[0], CACMO_Vanne_pin[i]);
+    }
+
+    // Initialisation
+    for (int i = 0; i < NVanne; ++i)
+    {
+        if (espace_vannes->vannes[i].init() != noError)
+        {
+            std::cerr << "Erreur d'initialisation des GPIO" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
 
     while (true)
     {
@@ -122,7 +131,11 @@ void process_communication()
         }
         else if (userInput == 'L')
         {
-            etat_vanne->etat[0] = !etat_vanne->etat[0];
+            for (int i = 0; i < NVanne; ++i)
+            {
+                int etat = espace_vannes->vannes[i].state;
+                espace_vannes->vannes[i].state = 1 - etat;
+            }
 
             sem_vanne.release(); // Release the semaphore to allow process 2 to run
         }
@@ -131,6 +144,7 @@ void process_communication()
 
 int main()
 {
+
     // Create threads
     std::thread t1(process_sensor);
     std::thread t2(process_vanne);
@@ -139,39 +153,7 @@ int main()
     // Wait for threads to finish
     t1.join();
     t2.join();
+    t3.join();
 
     return 0;
-}
-
-void init_gpio()
-{
-    auto chip = std::unique_ptr<gpiod_chip, decltype(&gpiod_chip_close)>(gpiod_chip_open(CHIP_PATH), gpiod_chip_close);
-    if (!chip)
-    {
-        std::cerr << "Failed to open GPIO chip!" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
-    std::vector<std::unique_ptr<gpiod_line, decltype(&gpiod_line_release)>> lines;
-
-    for (int pin : GPIO_PINS)
-    {
-        gpiod_line *line = gpiod_chip_get_line(chip.get(), pin);
-        if (!line)
-        {
-            std::cerr << "Failed to get line for GPIO " << pin << "!" << std::endl;
-            return EXIT_FAILURE;
-        }
-
-        // 将 line 封装为智能指针，存入 vector
-        lines.emplace_back(line, gpiod_line_release);
-
-        // 申请 GPIO 线作为输出
-        int ret = gpiod_line_request_output(line, "led_control", 0);
-        if (ret < 0)
-        {
-            std::cerr << "Failed to request line " << pin << " as output!" << std::endl;
-            return EXIT_FAILURE;
-        }
-    }
 }
