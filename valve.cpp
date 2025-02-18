@@ -1,5 +1,3 @@
-
-
 // compilation : g++ -c valve.cpp -o valve.o $(pkg-config --cflags --libs libgpiod)
 
 /**

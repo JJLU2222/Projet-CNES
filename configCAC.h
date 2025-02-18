@@ -19,5 +19,7 @@
 std::array<const char *, 3> CAC_Name = {"CACMO", "CACEHP", "CACOE"};
 std::array<const char *, 4> CACMO_Vanne_name = {"VCE", "VCO", "Vanne3", "Vanne4"};
 std::array<int, 4> CACMO_Vanne_pin = {5, 6, 19, 26};
+std::array<const char *, 4> CACMO_Sensor_name = {"TP01", "PR-01", "PR-02", "PR-03"};
+std::array<int, 4> CACMO_Sensor_channel = {5, 6, 7, 2};
 
 #endif

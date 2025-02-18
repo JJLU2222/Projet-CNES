@@ -1,5 +1,6 @@
-// compilation : g++ -std=c++20 main.cpp -o main_exe $(pkg-config --cflags --libs libgpiod)
-
+/* compilation :
+g++ -std=c++20 main.cpp valve.cpp sensor.cpp -o main_exe $(pkg-config --cflags --libs libgpiod)
+*/
 #include <iostream>
 #include <thread>
 #include <semaphore>
@@ -21,12 +22,12 @@ std::counting_semaphore<1> sem_vanne(0); // A semaphore with initial count of 0
 #define SHM_Sensor "/sensor_shm"
 #define SHM_Vanne "/vanne_shm"
 
-#define NCapteur 8
+#define NCapteur 4
 #define NVanne 4
 
 struct SensorData
 {
-    double return_data[NCapteur];
+    Sensor sensors[NCapteur];
 };
 
 struct VanneData
@@ -36,20 +37,25 @@ struct VanneData
 
 void process_sensor()
 {
-
-    // Creer SHM (data of sensor)
+    // Ouvrir SHM Sensor
     int shm_fd_sensor = shm_open(SHM_Sensor, O_CREAT | O_RDWR, 0666);
-    ftruncate(shm_fd_sensor, sizeof(SensorData));
-    SensorData *data = (SensorData *)mmap(0, sizeof(SensorData), PROT_WRITE, MAP_SHARED, shm_fd_sensor, 0);
+    if (shm_fd_sensor == -1)
+    {
+        std::cerr << "Failed to open shared memory!" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    SensorData *espace_sensors = (SensorData *)mmap(0, sizeof(SensorData), PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd_sensor, 0);
 
     while (true)
     {
         sem_sensor.acquire(); // Wait for the semaphore signal
 
-        readChannels();
         for (int i = 0; i < NCapteur; i++)
         {
-            data->return_data[i] = valSensors[i];
+            if (espace_sensors->sensors[i].readChannel() != noError)
+            {
+                std::cerr << "Erreur lors de la lecture du canal." << std::endl;
+            }
         }
 
         sem_sensor_ready.release();
@@ -78,23 +84,13 @@ void process_vanne()
     }
 }
 
-void process_communication()
+int main()
 {
-    char userInput;
-
-    // Creer SHM vanne
+    // ———————————————————————— Init vanne ————————————————————————————————————————————————
+    //  Creer SHM vanne
     int shm_fd_vanne = shm_open(SHM_Vanne, O_CREAT | O_RDWR, 0666);
     ftruncate(shm_fd_vanne, sizeof(VanneData));
     VanneData *espace_vannes = (VanneData *)mmap(0, sizeof(VanneData), PROT_WRITE, MAP_SHARED, shm_fd_vanne, 0);
-
-    // Ouvrir SHM Sensor
-    int shm_fd_sensor = shm_open(SHM_Sensor, O_CREAT | O_RDWR, 0666);
-    if (shm_fd_sensor == -1)
-    {
-        std::cerr << "Failed to open shared memory!" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    SensorData *data = (SensorData *)mmap(0, sizeof(SensorData), PROT_READ, MAP_SHARED, shm_fd_sensor, 0);
 
     // Création des objets Valve
     for (int i = 0; i < NVanne; ++i)
@@ -112,6 +108,33 @@ void process_communication()
         }
     }
 
+    // ———————————————————————— Init capteur ————————————————————————————————————————————————
+    //  Creer SHM (data of sensor)
+    int shm_fd_sensor = shm_open(SHM_Sensor, O_CREAT | O_RDWR, 0666);
+    ftruncate(shm_fd_sensor, sizeof(SensorData));
+    SensorData *espace_sensors = (SensorData *)mmap(0, sizeof(SensorData), PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd_sensor, 0);
+
+    // Création des objets sensor
+    for (int i = 0; i < NCapteur; ++i)
+    {
+        new (&espace_sensors->sensors[i]) Sensor(CACMO_Sensor_name[i], CAC_Name[0], 1, CACMO_Sensor_channel[i]);
+    }
+
+    // Initialisation
+    for (int i = 0; i < NCapteur; ++i)
+    {
+        if (espace_sensors->sensors[i].initSensor() != noError)
+        {
+            std::cerr << "Erreur d'initialisation des Sensor" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Create threads
+    std::thread t1(process_sensor);
+    std::thread t2(process_vanne);
+
+    char userInput;
     while (true)
     {
         std::cout << "Enter 'S' to trigger Process sensor, 'L' to trigger Process led : ";
@@ -123,11 +146,11 @@ void process_communication()
 
             sem_sensor_ready.acquire();
             std::cout << "Data of sensor receive : ";
+            // Affichage de la valeur lue
             for (int i = 0; i < NCapteur; ++i)
             {
-                std::cout << data->return_data[i] << " ";
+                espace_sensors->sensors[i].print_value();
             }
-            std::cout << std::endl;
         }
         else if (userInput == 'L')
         {
@@ -140,20 +163,9 @@ void process_communication()
             sem_vanne.release(); // Release the semaphore to allow process 2 to run
         }
     }
-}
-
-int main()
-{
-
-    // Create threads
-    std::thread t1(process_sensor);
-    std::thread t2(process_vanne);
-    std::thread t3(process_communication);
 
     // Wait for threads to finish
     t1.join();
     t2.join();
-    t3.join();
-
     return 0;
 }

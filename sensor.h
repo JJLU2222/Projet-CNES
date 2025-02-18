@@ -1,7 +1,9 @@
 /**
+
  * \file sensor.h
  * \brief header file of the sensor module that reads sensor values
  * \author Mael Parot, Corentin Berthon
+
  * \version 1.2
  * \date 11/04/2024
  *
@@ -11,11 +13,9 @@
 
 #ifndef SENSOR_H
 #define SENSOR_H
-
 //------------------------------------------------------------------------------
 // includes
 //------------------------------------------------------------------------------
-
 
 #include "configDefine.h"
 #include "statusErrorDefine.h"
@@ -23,34 +23,29 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <signal.h>
 #include <string>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 
+/*
 #if (TARGET_SYSTEM == _WIN32_)
+#include <getopt/getopt.h>
+#include <io.h>
 #else
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <modbus/modbus.h>
 #endif
 
-
-extern int16_t valSensors[MAX_SENSORS];  // Déclaration externe
-
-extern uint8_t tabSensorActivated[MAX_SENSORS];  // Déclaration externe
+*/
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
-statusErrDef readChannels();
-statusErrDef closeAdc();
-int readAdc(int fd);
-int openAdc(int adc);
-int16_t getAdc_value(int index);
 
 #ifdef __cplusplus
 }
@@ -58,20 +53,27 @@ int16_t getAdc_value(int index);
 
 /**
  * \brief sensor module class.
- * 
+ *
  */
-class sensor
+class Sensor
 {
-    public:
-        sensor();
-        virtual ~sensor();
-        statusErrDef initSensor();
-        statusErrDef extinctSensor();
+private:
+    std::string name;  /**< Valve name */
+    std::string board; /**< Name of the board */
+    int16_t value;
+    int type;
+    int channel;
 
-    protected:
-
-    private:
-
+public:
+    Sensor(const std::string &name, const std::string &board, int type, int channel);
+    virtual ~Sensor();
+    statusErrDef initSensor();
+    statusErrDef extinctSensor();
+    statusErrDef readChannel();
+    statusErrDef closeAdc();
+    int readAdc(int fd);
+    int openAdc();
+    void print_value() const;
 };
 
 #endif // SENSOR_H
