@@ -1,14 +1,14 @@
 /* compilation :
-g++ -std=c++20 main.cpp valve.cpp sensor.cpp -o main_exe $(pkg-config --cflags --libs libgpiod)
+g++ -std=c++20 main.cpp valve.cpp sensor.cpp cac.cpp -o main_exe $(pkg-config --cflags --libs libgpiod)
 */
 #include <iostream>
 #include <thread>
 #include <semaphore>
 #include <chrono>
-#include <random>
 #include <gpiod.h>
 #include "sensor.h"
 #include "valve.h"
+#include "cac.h"
 #include "configCAC.h"
 #include <fcntl.h>    // For O_* constants
 #include <sys/mman.h> // For shared memory
@@ -18,22 +18,6 @@ g++ -std=c++20 main.cpp valve.cpp sensor.cpp -o main_exe $(pkg-config --cflags -
 std::counting_semaphore<1> sem_sensor(0); // A semaphore with initial count of 0
 std::counting_semaphore<1> sem_sensor_ready(0);
 std::counting_semaphore<1> sem_vanne(0); // A semaphore with initial count of 0
-
-#define SHM_Sensor "/sensor_shm"
-#define SHM_Vanne "/vanne_shm"
-
-#define NCapteur 4
-#define NVanne 4
-
-struct SensorData
-{
-    Sensor sensors[NCapteur];
-};
-
-struct VanneData
-{
-    Valve vannes[NVanne];
-};
 
 void process_sensor()
 {
@@ -86,6 +70,9 @@ void process_vanne()
 
 int main()
 {
+    CAC cac = CAC("CACMO");
+    cac.init(dict_CACMO);
+
     // ———————————————————————— Init vanne ————————————————————————————————————————————————
     //  Creer SHM vanne
     int shm_fd_vanne = shm_open(SHM_Vanne, O_CREAT | O_RDWR, 0666);
