@@ -16,12 +16,12 @@
  * Initializes a Valve object with a name, board identifier, and GPIO pin number.
  *
  * \param name The name of the valve.
- * \param board The board identifier where the valve is connected (CACMO, CACOE, CACETH).
+ * \param id_v The id of the sensor.
  * \param gpio_pin The GPIO pin number controlling the valve.
  */
 
-Valve::Valve(const std::string &name, const std::string &board, int gpio_pin)
-    : name(name), board(board), state(0), gpio_pin(gpio_pin), chip(nullptr), line(nullptr) {}
+Valve::Valve(const std::string &name, int8_t id_v, int gpio_pin)
+    : name(name), id_v(id_v), state(0), gpio_pin(gpio_pin), chip(nullptr), line(nullptr) {}
 
 /**
  * \brief Initializes the GPIO line for the valve control.

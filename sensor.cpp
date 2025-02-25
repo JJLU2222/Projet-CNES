@@ -16,8 +16,8 @@ static int fd;
  */
 int16_t valSensor;
 
-Sensor::Sensor(const std::string &name, const std::string &board, int type, int channel)
-    : name(name), board(board), type(type), channel(channel), value(0)
+Sensor::Sensor(const std::string &name, uint8_t id, int type, int channel)
+    : name(name), id(id), type(type), channel(channel), value(0)
 {
 }
 

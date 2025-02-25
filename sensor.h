@@ -58,14 +58,14 @@ extern "C"
 class Sensor
 {
 private:
-    std::string name;  /**< Valve name */
-    std::string board; /**< Name of the board */
+    std::string name; /**< Valve name */
+    uint8_t id;
     int16_t value;
     int type;
     int channel;
 
 public:
-    Sensor(const std::string &name, const std::string &board, int type, int channel);
+    Sensor(const std::string &name, uint8_t id, int type, int channel);
     virtual ~Sensor();
     statusErrDef initSensor();
     statusErrDef extinctSensor();

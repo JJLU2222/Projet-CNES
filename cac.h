@@ -52,10 +52,10 @@ class CAC
 private:
     uint8_t id;
     std::string name;
-    SensorData *tab_sensors;
-    VanneData *tab_vannes;
 
 public:
+    SensorData *tab_sensors;
+    VanneData *tab_vannes;
     CAC(const std::string &name, uint8_t id);
     ~CAC();
     statusErrDef init(std::map<int, std::variant<Sensor, Valve>>);

@@ -70,52 +70,8 @@ void process_vanne()
 
 int main()
 {
-    CAC cac = CAC("CACMO");
+    CAC cac = CAC("CACMO", 1);
     cac.init(dict_CACMO);
-
-    // ———————————————————————— Init vanne ————————————————————————————————————————————————
-    //  Creer SHM vanne
-    int shm_fd_vanne = shm_open(SHM_Vanne, O_CREAT | O_RDWR, 0666);
-    ftruncate(shm_fd_vanne, sizeof(VanneData));
-    VanneData *espace_vannes = (VanneData *)mmap(0, sizeof(VanneData), PROT_WRITE, MAP_SHARED, shm_fd_vanne, 0);
-
-    // Création des objets Valve
-    for (int i = 0; i < NVanne; ++i)
-    {
-        new (&espace_vannes->vannes[i]) Valve(CACMO_Vanne_name[i], CAC_Name[0], CACMO_Vanne_pin[i]);
-    }
-
-    // Initialisation
-    for (int i = 0; i < NVanne; ++i)
-    {
-        if (espace_vannes->vannes[i].init() != noError)
-        {
-            std::cerr << "Erreur d'initialisation des GPIO" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    // ———————————————————————— Init capteur ————————————————————————————————————————————————
-    //  Creer SHM (data of sensor)
-    int shm_fd_sensor = shm_open(SHM_Sensor, O_CREAT | O_RDWR, 0666);
-    ftruncate(shm_fd_sensor, sizeof(SensorData));
-    SensorData *espace_sensors = (SensorData *)mmap(0, sizeof(SensorData), PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd_sensor, 0);
-
-    // Création des objets sensor
-    for (int i = 0; i < NCapteur; ++i)
-    {
-        new (&espace_sensors->sensors[i]) Sensor(CACMO_Sensor_name[i], CAC_Name[0], 1, CACMO_Sensor_channel[i]);
-    }
-
-    // Initialisation
-    for (int i = 0; i < NCapteur; ++i)
-    {
-        if (espace_sensors->sensors[i].initSensor() != noError)
-        {
-            std::cerr << "Erreur d'initialisation des Sensor" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-    }
 
     // Create threads
     std::thread t1(process_sensor);
@@ -136,15 +92,15 @@ int main()
             // Affichage de la valeur lue
             for (int i = 0; i < NCapteur; ++i)
             {
-                espace_sensors->sensors[i].print_value();
+                cac.tab_sensors->sensors[i].print_value();
             }
         }
         else if (userInput == 'L')
         {
             for (int i = 0; i < NVanne; ++i)
             {
-                int etat = espace_vannes->vannes[i].state;
-                espace_vannes->vannes[i].state = 1 - etat;
+                int etat = cac.tab_vannes->vannes[i].state;
+                cac.tab_vannes->vannes[i].state = 1 - etat;
             }
 
             sem_vanne.release(); // Release the semaphore to allow process 2 to run
@@ -154,5 +110,6 @@ int main()
     // Wait for threads to finish
     t1.join();
     t2.join();
+    cac.~CAC();
     return 0;
 }

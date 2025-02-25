@@ -23,21 +23,21 @@
 #define CAC_name "CACMO"
 #define NCapteur 4
 #define NVanne 4
-
+/*
 std::array<const char *, 3> CAC_Name = {"CACMO", "CACEHP", "CACOE"};
 std::array<const char *, 4> CACMO_Vanne_name = {"VCE", "VCO", "Vanne3", "Vanne4"};
 std::array<int, 4> CACMO_Vanne_pin = {5, 6, 19, 26};
 std::array<const char *, 4> CACMO_Sensor_name = {"TP-01", "PR-01", "PR-02", "PR-03"};
 std::array<int, 4> CACMO_Sensor_channel = {5, 6, 7, 2};
-
+*/
 inline std::map<int, std::variant<Sensor, Valve>> dict_CACMO = {
-    {10, Valve("VCE", "CACMO", 5)},
-    {11, Valve("VCo", "CACMO", 6)},
-    {12, Valve("Vanne3", "CACMO", 19)},
-    {13, Valve("Vanne4", "CACMO", 26)},
-    {15, Sensor("TP-01", "CACMO", 1, 5)},
-    {16, Sensor("PR-01", "CACMO", 1, 6)},
-    {17, Sensor("PR-02", "CACMO", 1, 7)},
-    {18, Sensor("PR-03", "CACMO", 1, 2)}};
+    {10, Valve("VCE", 10, 5)},
+    {11, Valve("VCo", 11, 6)},
+    {12, Valve("Vanne3", 12, 19)},
+    {13, Valve("Vanne4", 13, 26)},
+    {15, Sensor("TP-01", 15, 1, 5)},
+    {16, Sensor("PR-01", 16, 1, 6)},
+    {17, Sensor("PR-02", 17, 1, 7)},
+    {18, Sensor("PR-03", 18, 1, 2)}};
 
 #endif

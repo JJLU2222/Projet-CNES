@@ -4,6 +4,7 @@
 #include <gpiod.h>
 #include <iostream>
 #include <cstring>
+#include <cstdint>
 #include "statusErrorDefine.h"
 
 #define CHIP_PATH "/dev/gpiochip0"
@@ -20,15 +21,16 @@
 class Valve
 {
 private:
-    std::string name;  /**< Valve name */
-    std::string board; /**< Name of the board */
-    int gpio_pin;      /**< GPIO pin controlling the Valve */
-    gpiod_chip *chip;  /**< Pointer to the GPIO chip */
-    gpiod_line *line;  /**< Pointer to the GPIO line */
+    std::string name; /**< Valve name */
+
+    int gpio_pin;     /**< GPIO pin controlling the Valve */
+    gpiod_chip *chip; /**< Pointer to the GPIO chip */
+    gpiod_line *line; /**< Pointer to the GPIO line */
 
 public:
+    int8_t id_v;
     int state; /**< State of the Valve (1 for active, 0 for inactive) */
-    Valve(const std::string &name, const std::string &board, int gpio_pin);
+    Valve(const std::string &name, int8_t id_v, int gpio_pin);
     statusErrDef init();
     void apply_change();
     void activate();
